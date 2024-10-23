@@ -1,0 +1,11 @@
+Package: qPCRadmin
+Type: Package
+Title: Functions that can consolidate, alter, and filter data to prepare it for qPCR analysis (specifically with quickPCR package)
+Version: 0.1.0
+Author: Tristan Tyler Reed
+Maintainer: Tristan Tyler Reed <tristant@umich.edu>
+Description: Filter out rows of data, combine data files, add experimental IDs to sample names.
+              Input and output as .csv or .txt when appropriate. Made for qPCR results files output from QuantStudioPro7 (check compatability for other machines).
+License: Unlimited
+Encoding: UTF-8
+LazyData: true
