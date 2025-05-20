@@ -172,9 +172,9 @@ minData <- function(results_file_input, txt_output) {
   }
   
   # Filter out rows with unwanted samples and select unified columns
-  cleaned_data <- data %>%
-    filter(!grepl("NRT|NTC", .data[[sample_col]])) %>%
-    select(Sample = all_of(sample_col), Target = all_of(target_col), Cq = all_of(cq_col))
+  cleaned_data <- data[!grepl("NRT|NTC", data[[sample_col]]), ]
+  cleaned_data <- cleaned_data[, c(sample_col, target_col, cq_col)]
+  colnames(cleaned_data) <- c("Sample", "Target", "Cq")
   
   # Remove any additional information by dropping incomplete rows of the main data
   cleaned_data <- cleaned_data[complete.cases(cleaned_data), ]
