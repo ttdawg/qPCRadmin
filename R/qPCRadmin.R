@@ -111,51 +111,77 @@ incldData <- function(input_file, output_file, strings_to_include) {
 }
 
 ############################################################################################################################
-# Function to change qPCR results.csv to a .txt file with only the minimum required data for quickPCR analysis
-minData <- function(results_csv_input, txt_output) {
-
-  #check if .csv is from Taqman or SYBR run
-  initial_rows <- readLines(results_csv_input, n = 21)
-  is_SYBR <- any(grepl('# Melt Stage Number:',initial_rows))
-
-  if (is_SYBR) {
-    # Read the CSV file into a dataframe, skipping the first 20 rows and using the headers from row 21.
-    qPCR_data <- read.csv(results_csv_input,
-                          header = FALSE, stringsAsFactors = FALSE, skip = 21)
-    # Extract the first non-skipped row as header
-    headers <- qPCR_data[1, ]
-    # Remove the first row from data as it is the header
-    qPCR_data <- qPCR_data[-1, ]
-    # Set the extracted headers to be the actual column names of the dataframe
-    colnames(qPCR_data) <- headers
-    # Define the column names to be removed
-    columns_to_remove <- c("Well", "Well Position", "Omit", "Task", "Reporter", "Quencher", "Amp Status", "Amp Score",
-                           "Curve Quality", "Result Quality Issues", "Cq Confidence", "Cq Mean", "Cq SD", "Auto Threshold",
-                           "Threshold", "Auto Baseline", "Baseline Start", "Baseline End","Tm1","Tm2","Tm3","Tm4","Tm5")
-    # Remove the specified columns by name and NRT/NTC rows
-    qPCR_data <- qPCR_data[!(grepl("NRT", qPCR_data$'Sample') | grepl("NTC", qPCR_data$'Sample')),
-                           !(names(qPCR_data) %in% columns_to_remove)]
-    # Save edited data as a .txt file.
-    write.table(qPCR_data, txt_output, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
-  } else {
-    qPCR_data <- read.csv(results_csv_input,
-                          header = FALSE, stringsAsFactors = FALSE, skip = 20)
-    # Extract the first non-skipped row as header
-    headers <- qPCR_data[1, ]
-    # Remove the first row from data as it is the header
-    qPCR_data <- qPCR_data[-1, ]
-    # Set the extracted headers to be the actual column names of the dataframe
-    colnames(qPCR_data) <- headers
-    # Define the column names to be removed
-    columns_to_remove <- c("Well", "Well Position", "Omit", "Task", "Reporter", "Quencher", "Amp Status", "Amp Score",
-                           "Curve Quality", "Result Quality Issues", "Cq Confidence", "Cq Mean", "Cq SD", "Auto Threshold",
-                           "Threshold", "Auto Baseline", "Baseline Start", "Baseline End")
-    # Remove the specified columns by name and NRT/NTC rows
-    qPCR_data <- qPCR_data[!(grepl("NRT", qPCR_data$'Sample') | grepl("NTC", qPCR_data$'Sample')),
-                           !(names(qPCR_data) %in% columns_to_remove)]
-    # Save edited data as a .txt file.
-    write.table(qPCR_data, txt_output, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+# Function to change qPCR results.csv, .xls, or .xlsx file to a .txt file with only the minimum required data for quickPCR analysis
+minData <- function(results_file_input, txt_output) {
+  # Function to read data, regardless if it's csv or excel
+  read_data <- function(file) {
+    if (grepl("\\.csv$", file)) {
+      data <- read.csv(file, header = FALSE, stringsAsFactors = FALSE)
+    } else if (grepl("\\.xls$|\\.xlsx$", file)) {
+      data <- read_excel(file, col_names = FALSE)
+    } else {
+      stop("Unsupported file format")
+    }
+    return(data)
   }
+  
+  # Read the file
+  data <- read_data(results_file_input)
+  
+  # Identify the header row (where 'Well' is found in the first column)
+  header_row <- which(data[, 1] == "Well")[1]
+  
+  # If the header row is not found, stop execution
+  if (is.na(header_row)) {
+    stop("Header row not found in the data.")
+  }
+  
+  read_data_at_header <- function(file) {
+    if (grepl("\\.csv$", file)) {
+      data <- read.csv(file, header = FALSE, stringsAsFactors = FALSE, skip = header_row - 1)
+    } else if (grepl("\\.xls$|\\.xlsx$", file)) {
+      data <- read_excel(file, col_names = FALSE, skip = header_row - 1)
+    } else {
+      stop("Unsupported file format")
+    }
+    return(data)
+  }
+  
+  data <- read_data_at_header(results_file_input)
+  
+  # Extract the first non-skipped row as header
+  headers <- data[1, ]
+  # Remove the first row from data as it is the header
+  data <- data[-1, ]
+  # Set the extracted headers to be the actual column names of the dataframe
+  colnames(data) <- headers
+  
+  # Define possible column name sets
+  sample_cols <- c("Sample", "Sample Name")
+  target_cols <- c("Target", "Target Name")
+  cq_cols <- c("Cq", "Cт")
+  
+  # Find actual column names present in the data
+  sample_col <- sample_cols[sample_cols %in% colnames(data)]
+  target_col <- target_cols[target_cols %in% colnames(data)]
+  cq_col <- cq_cols[cq_cols %in% colnames(data)]
+  
+  # If any required columns aren't found, stop execution
+  if (length(sample_col) == 0 || length(target_col) == 0 || length(cq_col) == 0) {
+    stop("Required columns not found in the data.")
+  }
+  
+  # Filter out rows with unwanted samples and select unified columns
+  cleaned_data <- data %>%
+    filter(!grepl("NRT|NTC", .data[[sample_col]])) %>%
+    select(Sample = all_of(sample_col), Target = all_of(target_col), Cq = all_of(cq_col))
+  
+  # Remove any additional information by dropping incomplete rows of the main data
+  cleaned_data <- cleaned_data[complete.cases(cleaned_data), ]
+  
+  # Save the cleaned data as a .txt file
+  write.table(cleaned_data, txt_output, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+  
 }
 
 ############################################################################################################################
