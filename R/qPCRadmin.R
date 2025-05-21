@@ -179,11 +179,14 @@ minData <- function(results_file_input, txt_output) {
   # Remove any additional information by dropping incomplete rows of the main data
   cleaned_data <- cleaned_data[complete.cases(cleaned_data), ]
   
-  # Save the cleaned data as a .txt file
-  write.table(cleaned_data, txt_output, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+  # Save the cleaned data as a .txt or .csv file based on the extension of `txt_output`
+  if (grepl("\\.csv$", txt_output)) {
+    write.csv(cleaned_data, txt_output, row.names = FALSE)
+  } else {
+    write.table(cleaned_data, txt_output, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+  }
   
 }
-
 ############################################################################################################################
 # Combines qPCR results.csv files into one .txt file
 # files_to_combine and reporters_to_exclude should be input as vectors
