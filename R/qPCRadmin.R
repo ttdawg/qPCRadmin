@@ -1,117 +1,5 @@
 ############################################################################################################################
-# Function to filter out all rows with the specified string(s) and write the result into a new file
-# input is .txt or .csv results file from qPCR; only use Sample name(s) OR Target name(s), not both at once
-rmvData <- function(input_file, output_file, strings_to_remove) {
-  # Ensure strings_to_remove is always a character vector
-  if (is.character(strings_to_remove)) {
-    strings_to_remove <- as.character(strings_to_remove)
-  } else {
-    stop("strings_to_remove must be a character vector or string")
-  }
-  # Helper function to get file extension
-  get_file_extension <- function(filename) {
-    if (grepl("\\.", filename)) {
-      return(tolower(sub("^.*\\.(.*)$", "\\1", filename)))
-    }
-    return("")
-  }
-
-  # Check if file is .txt or .csv
-  file_extension <- get_file_extension(input_file)
-
-  if (file_extension == "txt") {
-    # Read the input file into a data frame
-    data <- read.delim(input_file, stringsAsFactors = FALSE)
-    # Remove rows containing any of the specified strings in any column
-    cleaned_data <- data[!(data[['Sample']] %in% strings_to_remove | data[['Target']] %in% strings_to_remove), ]
-    # Write the cleaned data to a new file
-    write.table(cleaned_data, file = output_file, sep = "\t", row.names = FALSE, quote = FALSE)
-
-  } else if (file_extension == 'csv') {
-
-    #check if .csv is from Taqman or SYBR run
-    initial_rows <- readLines(input_file, n = 21)
-    is_SYBR <- any(grepl('# Melt Stage Number:',initial_rows))
-
-    if (is_SYBR) {
-      qPCR_header <- read.csv(file = input_file,
-                              header = TRUE, stringsAsFactors = FALSE, nrows = 20)
-      qPCR_csv <- read.csv(file = input_file,
-                           header = TRUE, stringsAsFactors = FALSE, skip = 21)
-    } else {
-      qPCR_header <- read.csv(file = input_file,
-                              header = TRUE, stringsAsFactors = FALSE, nrows = 19)
-      qPCR_csv <- read.csv(file = input_file,
-                           header = TRUE, stringsAsFactors = FALSE, skip = 20)
-    }
-    # filter out all rows containing the specified strings in either the Sample or Target columns
-    qPCR_csv <- qPCR_csv[!(qPCR_csv[['Sample']] %in% strings_to_remove | qPCR_csv[['Target']] %in% strings_to_remove),]
-    write.csv(qPCR_header, output_file, row.names = FALSE)
-    write.table(qPCR_csv, output_file,sep=",",append = TRUE, row.names = FALSE, col.names = TRUE)
-
-  } else {
-    # warning message if input file is neither .txt or .csv
-    stop('ensure input_file is a .txt or .csv file')
-  }
-}
-
-############################################################################################################################
-# Function to filter rows with the specified string(s) and write the result into a new file
-# input is .txt or .csv results file from qPCR; only use Sample name(s) OR Target name(s), not both at once
-incldData <- function(input_file, output_file, strings_to_include) {
-  # Ensure strings_to_remove is always a character vector
-  if (is.character(strings_to_include)) {
-    strings_to_include <- as.character(strings_to_include)
-  } else {
-    stop("strings_to_remove must be a character vector or string")
-  }
-  # Helper function to get file extension
-  get_file_extension <- function(filename) {
-    if (grepl("\\.", filename)) {
-      return(tolower(sub("^.*\\.(.*)$", "\\1", filename)))
-    }
-    return("")
-  }
-  # Check if file is .txt or .csv
-  file_extension <- get_file_extension(input_file)
-
-  if (file_extension == "txt") {
-    # Read the input file into a data frame
-    data <- read.delim(input_file, stringsAsFactors = FALSE)
-    # Remove rows containing any of the specified strings in any column
-    cleaned_data <- data[data[['Sample']] %in% strings_to_include | data[['Target']] %in% strings_to_include, ]
-    # Write the cleaned data to a new file
-    write.table(cleaned_data, file = output_file, sep = "\t", row.names = FALSE, quote = FALSE)
-  } else if (file_extension == 'csv') {
-
-    #check if .csv is from Taqman or SYBR run
-    initial_rows <- readLines(input_file, n = 21)
-    is_SYBR <- any(grepl('# Melt Stage Number:',initial_rows))
-
-    if (is_SYBR) {
-      qPCR_header <- read.csv(file = input_file,
-                              header = TRUE, stringsAsFactors = FALSE, nrows = 20)
-      qPCR_csv <- read.csv(file = input_file,
-                           header = TRUE, stringsAsFactors = FALSE, skip = 21)
-    } else {
-      qPCR_header <- read.csv(file = input_file,
-                              header = TRUE, stringsAsFactors = FALSE, nrows = 19)
-      qPCR_csv <- read.csv(file = input_file,
-                           header = TRUE, stringsAsFactors = FALSE, skip = 20)
-    }
-    # filter to include only rows containing the specified strings in either the Sample or Target columns
-    qPCR_csv <- qPCR_csv[qPCR_csv[['Sample']] %in% strings_to_include | qPCR_csv[['Target']] %in% strings_to_include,]
-    write.csv(qPCR_header, output_file, row.names = FALSE)
-    write.table(qPCR_csv, output_file,sep=",",append = TRUE, row.names = FALSE, col.names = TRUE)
-
-  } else {
-    # warning message if input file is neither .txt or .csv
-    stop('ensure input_file is a .txt or .csv file')
-  }
-}
-
-############################################################################################################################
-# Function to change qPCR results.csv, .xls, or .xlsx file to a .txt file with only the minimum required data for quickPCR analysis
+# Function to change qPCR results.csv to a .txt file with only the minimum required data for quickPCR analysis
 minData <- function(results_file_input, txt_output) {
   # Function to read data, regardless if it's csv or excel
   read_data <- function(file) {
@@ -187,112 +75,178 @@ minData <- function(results_file_input, txt_output) {
   }
   
 }
+
 ############################################################################################################################
-# Combines qPCR results.csv files into one .txt file
-# files_to_combine and reporters_to_exclude should be input as vectors
-combPCR <- function(files_to_combine, out_txt, reporters_to_exclude) {
-  # set reporters_to_exclude as emtpy if not specified
-  if(!hasArg(reporters_to_exclude)){reporters_to_exclude <- c()}
+# Function to filter out all rows with the specified string(s) and write the result into a new file
+# input is .txt or .csv results file from minData; only use Sample name(s) OR Target name(s), not both at once
+rmvData <- function(input_file, output_file, strings_to_remove) {
+  # Ensure strings_to_remove is always a character vector
+  if (is.character(strings_to_remove)) {
+    strings_to_remove <- as.character(strings_to_remove)
+  } else {
+    stop("strings_to_remove must be a character vector or string")
+  }
+  # Helper function to get file extension
+  get_file_extension <- function(filename) {
+    if (grepl("\\.", filename)) {
+      return(tolower(sub("^.*\\.(.*)$", "\\1", filename)))
+    }
+    return("")
+  }
+  
+  # Check if file is .txt or .csv
+  file_extension <- get_file_extension(input_file)
+  
+  if (file_extension == "txt") {
+    # Read the input file into a data frame
+    data <- read.delim(input_file, stringsAsFactors = FALSE)
+    # Remove rows containing any of the specified strings in any column
+    cleaned_data <- data[!(data[['Sample']] %in% strings_to_remove | data[['Target']] %in% strings_to_remove), ]
+    # Write the cleaned data to a new file
+    write.table(cleaned_data, file = output_file, sep = "\t", row.names = FALSE, quote = FALSE)
+    
+  } else if (file_extension == 'csv') {
+    
+    qPCR_csv <- read.csv(input_file, stringsAsFactors = FALSE)
+    
+    # filter out all rows containing the specified strings in either the Sample or Target columns
+    qPCR_csv <- qPCR_csv[!(qPCR_csv[['Sample']] %in% strings_to_remove | qPCR_csv[['Target']] %in% strings_to_remove),]
+    write.csv(qPCR_csv, output_file, row.names = FALSE)
+    
+  } else {
+    # warning message if input file is neither .txt or .csv
+    stop('ensure input_file is a .txt or .csv file')
+  }
+}
 
-  #check if .csv is from Taqman or SYBR run
-  initial_rows <- readLines(files_to_combine[1], n = 21)
-  is_SYBR <- any(grepl('# Melt Stage Number:',initial_rows))
 
+############################################################################################################################
+# Function to filter rows with the specified string(s) and write the result into a new file
+# input is .txt or .csv results file from minData; only use Sample name(s) OR Target name(s), not both at once
+incldData <- function(input_file, output_file, strings_to_include) {
+  # Ensure strings_to_remove is always a character vector
+  if (is.character(strings_to_include)) {
+    strings_to_include <- as.character(strings_to_include)
+  } else {
+    stop("strings_to_remove must be a character vector or string")
+  }
+  # Helper function to get file extension
+  get_file_extension <- function(filename) {
+    if (grepl("\\.", filename)) {
+      return(tolower(sub("^.*\\.(.*)$", "\\1", filename)))
+    }
+    return("")
+  }
+  # Check if file is .txt or .csv
+  file_extension <- get_file_extension(input_file)
+  
+  if (file_extension == "txt") {
+    # Read the input file into a data frame
+    data <- read.delim(input_file, stringsAsFactors = FALSE)
+    # Remove rows containing any of the specified strings in any column
+    cleaned_data <- data[data[['Sample']] %in% strings_to_include | data[['Target']] %in% strings_to_include, ]
+    # Write the cleaned data to a new file
+    write.table(cleaned_data, file = output_file, sep = "\t", row.names = FALSE, quote = FALSE)
+  } else if (file_extension == 'csv') {
+    
+    qPCR_csv <- read.csv(input_file, stringsAsFactors = FALSE)
+    
+    # filter to include only rows containing the specified strings in either the Sample or Target columns
+    qPCR_csv <- qPCR_csv[qPCR_csv[['Sample']] %in% strings_to_include | qPCR_csv[['Target']] %in% strings_to_include,]
+    write.csv(qPCR_csv, output_file, row.names = FALSE)
+    
+  } else {
+    # warning message if input file is neither .txt or .csv
+    stop('ensure input_file is a .txt or .csv file')
+  }
+}
+
+############################################################################################################################
+# Combines minData files into one file.
+# Input can be either .csv, .txt, or both. Output can be either .csv or .txt.
+# files_to_combine should be input as a vector
+combPCR <- function(files_to_combine, out_file) {
+  
   # Initialize an empty list to store individual dataframes
   combined_data <- list()
-
-  if (is_SYBR) {
-    # Loop through each file
-    for (file_path in files_to_combine) {
-      # Check if the file exists before attempting to read it
-      if (file.exists(file_path)) {
-        # Read data
-        qPCR_data <- read.csv(file_path, header = FALSE, stringsAsFactors = FALSE, skip = 21)
-        # Extract the first non-skipped row as header
-        headers <- qPCR_data[1, ]
-        # Remove the first row from data as it is the header
-        qPCR_data <- qPCR_data[-1, ]
-        # Set the extracted headers to be the actual column names of the dataframe
-        colnames(qPCR_data) <- headers
-        # Define the column names to be removed
-        columns_to_remove <- c("Well", "Well Position", "Omit", "Task", "Reporter", "Quencher", "Amp Status", "Amp Score",
-                               "Curve Quality", "Result Quality Issues", "Cq Confidence", "Cq Mean", "Cq SD", "Auto Threshold",
-                               "Threshold", "Auto Baseline", "Baseline Start", "Baseline End","Tm1","Tm2","Tm3","Tm4","Tm5")
-        # Remove the specified columns by name
-        qPCR_data <- qPCR_data[!(grepl("NRT", qPCR_data$'Sample') | grepl("NTC", qPCR_data$'Sample'))
-                               , !(names(qPCR_data) %in% columns_to_remove)]
-        # Remove rows with unwanted reporters
-        if (length(reporters_to_exclude) > 0) {
-          qPCR_data <- qPCR_data[!apply(qPCR_data, 1, function(row) any(row %in% reporters_to_exclude)), ]
-        }
-        # Append the edited data to the list
-        combined_data[[length(combined_data) + 1]] <- qPCR_data
-      } else {
-        warning(paste("File not found:", file_path))
-      }
+  
+  # Helper function to get file extension
+  get_file_extension <- function(filename) {
+    if (grepl("\\.", filename)) {
+      return(tolower(sub("^.*\\.(.*)$", "\\1", filename)))
     }
-  } else {
-    # Loop through each file
-    for (file_path in files_to_combine) {
-      # Check if the file exists before attempting to read it
-      if (file.exists(file_path)) {
-        # Read data
-        qPCR_data <- read.csv(file_path, header = FALSE, stringsAsFactors = FALSE, skip = 20)
-        # Extract the first non-skipped row as header
-        headers <- qPCR_data[1, ]
-        # Remove the first row from data as it is the header
-        qPCR_data <- qPCR_data[-1, ]
-        # Set the extracted headers to be the actual column names of the dataframe
-        colnames(qPCR_data) <- headers
-        # Define the column names to be removed
-        columns_to_remove <- c("Well", "Well Position", "Omit", "Task", "Reporter", "Quencher", "Amp Status", "Amp Score",
-                               "Curve Quality", "Result Quality Issues", "Cq Confidence", "Cq Mean", "Cq SD", "Auto Threshold",
-                               "Threshold", "Auto Baseline", "Baseline Start", "Baseline End")
-        # Remove the specified columns by name
-        qPCR_data <- qPCR_data[!(grepl("NRT", qPCR_data$'Sample') | grepl("NTC", qPCR_data$'Sample'))
-                               , !(names(qPCR_data) %in% columns_to_remove)]
-        # Remove rows with unwanted reporters
-        if (length(reporters_to_exclude) > 0) {
-          qPCR_data <- qPCR_data[!apply(qPCR_data, 1, function(row) any(row %in% reporters_to_exclude)), ]
-        }
-        # Append the edited data to the list
-        combined_data[[length(combined_data) + 1]] <- qPCR_data
-      } else {
-        warning(paste("File not found:", file_path))
-      }
+    return("")
+  }
+  
+  # Loop through each file
+  for (file_path in files_to_combine) {
+    
+    file_extension <- get_file_extension(file_path)
+    
+    if (file_extension == 'csv') {
+      # Read data
+      qPCR_data <- read.csv(file_path, stringsAsFactors = FALSE)
+      # Append the edited data to the list
+      combined_data[[length(combined_data) + 1]] <- qPCR_data
+    } else if (file_extension == 'txt') {
+      qPCR_data <- read.delim(file_path, stringsAsFactors = FALSE)
+      # Append the edited data to the list
+      combined_data[[length(combined_data) + 1]] <- qPCR_data
+    } else {
+      stop("Unsupported file type as input: ", file_extension)
     }
   }
+  
   # Combine all the edited data frames into one
   final_combined_data <- do.call(rbind, combined_data)
-  # Write the combined data to a .txt file
-  write.table(final_combined_data, out_txt, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+  
+  # Save the combined data based on the extension of `out_file`
+  output_extension <- get_file_extension(out_file)
+  
+  # Save the combined data as a .txt or .csv file based on the extension of `out_file`
+  if (output_extension == "csv") {
+    write.csv(final_combined_data, out_file, row.names = FALSE, quote = FALSE)
+  } else if (output_extension == "txt") {
+    write.table(final_combined_data, out_file, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+  } else {
+    stop("Unsupported file type as output: ", output_extension)
+  }
 }
 
 #############################################################################################################################
 # Adds a string (to use as an identifier) to each row of the 'Sample' column immediately proceeding sample name
-# Reads in .txt file and outputs as new .txt file
-IDtxt <- function(in_file, out_file, id) {
-  # Read the combined .txt file into a dataframe
-  combined_data <- read.table(in_file, header = TRUE, sep = "\t", stringsAsFactors = FALSE)
-  # Append character string to each value in the 'Sample' column
-  combined_data$Sample <- paste0(combined_data$Sample, id)
-  # Save the modified dataframe back to the .txt file
-  write.table(combined_data, out_file, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
-}
-
-#############################################################################################################################
-# Combine .txt files across experiments AFTER having added a unique character string in 'Sample' column
-# If a unique ID is not needed, use combPCR to go straight from multiple .csv files to one .txt
-combtxt <- function(txt_files_to_combine, out_file) {
-  # Initialize an empty list to store dataframes
-  txt_list <- list()
-  # Read each .txt file and store the dataframe in the list
-  for (file in txt_files_to_combine) {
-    data <- read.table(file, header = TRUE, sep = "\t", stringsAsFactors = FALSE)
-    txt_list <- append(txt_list, list(data))
+# Reads in .csv or .txt file and outputs as new .csv or .txt file
+dataID <- function(in_file, out_file, id) {
+  
+  # Helper function to get file extension
+  get_file_extension <- function(filename) {
+    if (grepl("\\.", filename)) {
+      return(tolower(sub("^.*\\.(.*)$", "\\1", filename)))
+    }
+    return("")
   }
-  # Combine all dataframes in the list into one dataframe
-  combined_data <- do.call(rbind, txt_list)
-  # Write the combined dataframe to a new .txt file
-  write.table(combined_data, out_file, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+  
+  in_file_extension <- get_file_extension(in_file)
+  out_file_extension <- get_file_extension(out_file)
+  
+  if (in_file_extension == 'csv') {
+    data_to_id <- read.csv(in_file, stringsAsFactors = FALSE)
+  } else if (in_file_extension == 'txt') {
+    # Read the combined .txt file into a dataframe
+    data_to_id <- read.delim(in_file, stringsAsFactors = FALSE)
+  } else {
+    stop("Unsupported file format (input): ", in_file_extension)
+  }
+  
+  # Append character string to each value in the 'Sample' column
+  data_to_id$Sample <- paste0(data_to_id$Sample, id)
+  
+  # Write modified dataframe to the output file based on out_file extension type
+  if (out_file_extension == 'csv') {
+    write.csv(data_to_id, out_file, row.names = FALSE, quote = FALSE)
+  } else if (out_file_extension == 'txt') {
+    write.table(data_to_id, out_file, row.names = FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+  } else {
+    stop("Unsupported file format (output): ", out_file_extension)
+  }
 }
